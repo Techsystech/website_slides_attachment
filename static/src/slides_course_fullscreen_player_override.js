@@ -17,6 +17,7 @@ Fullscreen.include({
             if (this._renderSlideRunning) { return; }
             this._renderSlideRunning = true;
             try {
+                const slide = this._slideValue;
                 var $content = this.$('.o_wslides_fs_content');
                 $content.empty();
                 if (this.websiteAnimateWidget) {
@@ -32,7 +33,6 @@ Fullscreen.include({
                 }
 
                 // render slide content
-                console.log('Rendering slide', slide);
                 
                 if (slide.category === 'video' && slide.videoSourceType === 'local') {
                     $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
