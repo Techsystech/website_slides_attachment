@@ -17,7 +17,6 @@ Fullscreen.include({
             if (this._renderSlideRunning) { return; }
             this._renderSlideRunning = true;
             try {
-                const slide = this._slideValue;
                 var $content = this.$('.o_wslides_fs_content');
                 $content.empty();
                 if (this.websiteAnimateWidget) {
