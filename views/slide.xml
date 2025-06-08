@@ -1,0 +1,20 @@
+<odoo>
+  <data>
+    <record model="ir.ui.view" id="website_slides_attachment.form">
+      <field name="name">website_slides_attachment_form</field>
+      <field name="model">slide.slide</field>
+      <field name="inherit_id" ref="website_slides.view_slide_slide_form"/>
+      <field name="arch" type="xml">
+        <xpath expr="//field[@name='slide_category']" position="after">
+          <field name="is_local_video" invisible="slide_category != 'video'"/>
+        </xpath>
+        <xpath expr="//field[@name='document_binary_content']" position="after">
+          <field name="video_binary_content" options="{'accepted_file_extensions': '.mp4'}" invisible="slide_category != 'video' or is_local_video == False"/>
+        </xpath>
+        <xpath expr="//field[@name='video_url']" position="attributes">
+          <attribute name="invisible">slide_category != 'video' and source_type != 'external' or is_local_video == True</attribute>
+        </xpath>
+      </field>
+    </record>
+  </data>
+</odoo>
