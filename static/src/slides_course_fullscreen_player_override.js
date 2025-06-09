@@ -6,8 +6,6 @@ import { unhideConditionalElements } from '@website/js/content/inject_dom';
 
 Fullscreen.include({
     /**
-     * Extend the _renderSlide method so that slides of category "certification"
-     * are also taken into account and rendered correctly
      *
      * @private
      * @override
@@ -36,6 +34,11 @@ Fullscreen.include({
                 
                 if (slide.category === 'video' && slide.videoSourceType === 'local') {
                     $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
+                    const videoViewer = document.querySelector('#embeddedVideoViewer')
+                    videoViewer.addEventListener('ended', (event) => {
+                        this.trigger_up('slide_mark_completed', slide);
+                        this.trigger_up('slide_go_next', slide);
+                    });
                 }
                 else if (['document', 'infographic'].includes(slide.category)) {
                     $content.empty().append(renderToElement('website.slides.fullscreen.content', {widget: this}));

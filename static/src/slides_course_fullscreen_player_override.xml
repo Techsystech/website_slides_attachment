@@ -2,7 +2,7 @@
     <t t-name="website.slides.fullscreen.content.video">
         <div class="ratio h-100">
             <t t-set="src" t-value="'/web/content/slide.slide/' + widget._slideValue.id + '/video_binary_content'"/>
-            <video class="o-FileViewer-view" controls="controls">
+            <video id="embeddedVideoViewer" class="o-FileViewer-view" controls="controls">
                 <source t-att-src="src" data-type="video/mp4"/>
                 Your browser does not support the video tag.
             </video>
