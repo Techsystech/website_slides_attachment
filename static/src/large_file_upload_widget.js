@@ -26,9 +26,6 @@ export class UploadWidget extends Component {
     onFileChange(event) {
       this.state.filename = event.target.files[0].name;
       this.state.file = event.target.files[0];
-      if (this.state.saveLocation) {
-        //this.props.record.data[this.props.name] = this.state.saveLocation + this.state.filename;
-      }
     }
     onSaveLocationChange(event) {
       this.state.saveLocation = event.target.value;
@@ -39,9 +36,6 @@ export class UploadWidget extends Component {
         this.state.saveLocation += '/';
       }
       document.querySelector('#save_location').value = this.state.saveLocation;
-      if (this.state.file) {
-        //this.props.record.data[this.props.name] = this.state.saveLocation + this.state.filename;
-      }
     }
    
       async startUpload() {
@@ -53,9 +47,10 @@ export class UploadWidget extends Component {
         alert('Please enter a save location.');
         return;
       }
+      const date = new Date().toISOString();
       const formData = new FormData();
       formData.append('file', this.state.file);
-      formData.append('res_id', this.props.record._config.resId);
+      formData.append('time_stamp', date);
       formData.append('res_model', this.props.record._config.resModel);
       formData.append('save_location', this.state.saveLocation);
 
@@ -65,8 +60,8 @@ export class UploadWidget extends Component {
         body: formData,
       });
       this.props.record.dirty = true;
-      this.props.record.data[this.props.name] = this.state.saveLocation + this.props.record._config.resModel + '_' + this.props.record._config.resId + '_' + this.state.filename.replaceAll(' ', '_' );
-      this.props.record._changes[this.props.name] = this.state.saveLocation + this.props.record._config.resModel + '_' + this.props.record._config.resId + '_' + this.state.filename.replaceAll(' ', '_' );
+      this.props.record.data[this.props.name] = this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' );
+      this.props.record._changes[this.props.name] = this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' );
       this.state.uploading = false;
     }
     async onRemove(){

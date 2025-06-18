@@ -40,11 +40,7 @@ class UploadController(http.Controller):
         content = file.read()
         filename = file.filename
         filename =  filename.replace(' ', '_')  # Replace spaces with underscores for the filename
-        open(request.httprequest.form.get('save_location') + request.httprequest.form.get('res_model') + '_' + request.httprequest.form.get('res_id') + '_' + filename, 'ab').write(content)
-        record = request.env['slide.slide'].search([('id', '=', int(request.httprequest.form.get('res_id')))])
-        print(request.httprequest.form.get('res_id'))
-        #_logger.info("Received file: %s", filename)
-
+        open(request.httprequest.form.get('save_location') + request.httprequest.form.get('res_model') + '_' + request.httprequest.form.get('time_stamp') + '_' + filename, 'ab').write(content)
 
         # Return a success response
         return request.make_response("Upload successful", status=200)
