@@ -9,7 +9,7 @@
           <field name="is_local_video" invisible="slide_category != 'video'"/>
         </xpath>
         <xpath expr="//field[@name='document_binary_content']" position="after">
-          <field name="video_binary_content" options="{'accepted_file_extensions': '.mp4'}" invisible="slide_category != 'video' or is_local_video == False"/>
+          <field name="video_binary_content" widget="large_file_upload_widget" options="{'accepted_file_extensions': '.mp4'}" invisible="slide_category != 'video' or is_local_video == False"/>
         </xpath>
         <xpath expr="//field[@name='video_url']" position="attributes">
           <attribute name="invisible">slide_category != 'video' and source_type != 'external' or is_local_video == True</attribute>

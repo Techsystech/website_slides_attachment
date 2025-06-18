@@ -25,8 +25,13 @@
     ],
     'assets': {
     'web.assets_frontend': [
-        'website_slides_attachment/static/src/**',
+        'website_slides_attachment/static/src/slides_course_fullscreen_player_override.js',
+        'website_slides_attachment/static/src/slides_course_fullscreen_player_override.xml',
     ],
+    'web.assets_backend': [
+            'website_slides_attachment/static/src/large_file_upload_widget.js',
+            'website_slides_attachment/static/src/large_file_upload_widget.xml',
+        ],
 },
     # only loaded in demonstration mode
     'demo': [

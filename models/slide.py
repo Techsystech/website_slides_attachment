@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
+import base64
 
 
 class Slide(models.Model):
@@ -15,9 +16,9 @@ class Slide(models.Model):
 
     is_local_video = fields.Boolean()
 
-    video_binary_content = fields.Binary(
+    video_binary_content = fields.Char(
         string='Video Attachment',
-        help='Binary content of the video file to be streamed.',
+        help='Binary content of the video file to be streamed.'
     )
 
     @api.depends('video_source_type', 'is_local_video')
