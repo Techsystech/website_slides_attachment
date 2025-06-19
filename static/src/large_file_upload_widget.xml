@@ -3,7 +3,7 @@
   <t t-name="website_slides_attachment.large_file_upload_widget_template">
     <div>
       <t t-if="!this.props.record.data[this.props.name]">
-        <input type="file" class="o_input_file" t-on-change="onFileChange" />
+        <input type="file" class="o_input_file" t-on-change="onFileChange" t-att-accept="this.props.acceptedFileExtensions"/>
         <input type="text" class="o_input_text" t-on-change="onSaveLocationChange" placeholder="File Save Location" id="save_location"/>
         <button t-on-click="startUpload" class="btn btn-primary">Upload</button>
         <t  t-if="this.state.uploading">

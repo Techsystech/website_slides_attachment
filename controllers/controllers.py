@@ -40,7 +40,9 @@ class UploadController(http.Controller):
         content = file.read()
         filename = file.filename
         filename =  filename.replace(' ', '_')  # Replace spaces with underscores for the filename
-        open(request.httprequest.form.get('save_location') + request.httprequest.form.get('res_model') + '_' + request.httprequest.form.get('time_stamp') + '_' + filename, 'ab').write(content)
+        full_path = request.httprequest.form.get('save_location') + request.httprequest.form.get('res_model') + '_' + request.httprequest.form.get('time_stamp') + '_' + filename
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)  # Ensure the directory exists
+        open(full_path, 'ab').write(content)
 
         # Return a success response
         return request.make_response("Upload successful", status=200)
