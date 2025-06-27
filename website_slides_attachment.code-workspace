@@ -1,9 +1,6 @@
 {
 	"folders": [
 		{
-			"path": "../../../odoo"
-		},
-		{
 			"path": ".."
 		},
 		{
@@ -13,5 +10,7 @@
 			"path": "../../odoo"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"python.languageServer": "None"
+	}
 }

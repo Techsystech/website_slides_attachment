@@ -38,7 +38,7 @@ export class UploadWidget extends Component {
       document.querySelector('#save_location').value = this.state.saveLocation;
     }
    
-      async startUpload() {
+    async startUpload() {
       if (!this.state.file) {
         alert('Please select a file to upload.');
         return;
@@ -59,9 +59,8 @@ export class UploadWidget extends Component {
         method: 'POST',
         body: formData,
       });
-      this.props.record.dirty = true;
-      this.props.record.data[this.props.name] = this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' );
-      this.props.record._changes[this.props.name] = this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' );
+      const changes = { [this.props.name]: this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' ) };
+      await this.props.record.update(changes, { save: this.props.autosave });
       this.state.uploading = false;
     }
     async onRemove(){
@@ -73,9 +72,9 @@ export class UploadWidget extends Component {
         body: formData,
       });
 
-      this.props.record.dirty = true;
-      this.props.record.data[this.props.name] = '';
-      this.props.record._changes[this.props.name] = '';
+      const changes = { [this.props.name]: '' };
+      await this.props.record.update(changes, { save: this.props.autosave });
+      console.log(this);
     }
 }
 

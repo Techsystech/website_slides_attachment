@@ -18,7 +18,7 @@ Fullscreen.include({
             var $content = this.$('.o_wslides_fs_content');
             if (slide.category === 'video' && slide.videoSourceType === 'local') {
                 $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
-                const videoViewer = document.querySelector('#embeddedVideoViewer')
+                const videoViewer = document.querySelector('#embeddedVideoViewer');
                 videoViewer.addEventListener('ended', (event) => {
                     this.trigger_up('slide_mark_completed', slide);
                     this.trigger_up('slide_go_next', slide);
@@ -29,6 +29,6 @@ Fullscreen.include({
             this._renderSlideRunning = false;
         }
 
-        return Promise.all([def])
+        return Promise.all([def]);
     },
 });
