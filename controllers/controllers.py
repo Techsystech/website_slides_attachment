@@ -32,17 +32,21 @@ _logger = logging.getLogger(__name__)
 
 class UploadController(http.Controller):
 
-    @http.route('/website_slides_attachment/upload', type='http', auth='user', csrf=False)
+    @http.route('/website_slides_attachment/upload', type='http', auth='user', csrf=False, max_content_length=None)
     def upload_file(self, **kwargs):
         file = request.httprequest.files.get('file')
         
         print('file is: ', file)
-        content = file.read()
         filename = file.filename
         filename =  filename.replace(' ', '_')  # Replace spaces with underscores for the filename
         full_path = request.httprequest.form.get('save_location') + request.httprequest.form.get('res_model') + '_' + request.httprequest.form.get('time_stamp') + '_' + filename
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)  # Ensure the directory exists
-        open(full_path, 'ab').write(content)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)  # Ensure the directory exists.
+        with open(full_path, 'wb') as f:
+            while True:
+                chunk = file.stream.read(8192)
+                if not chunk:
+                    break
+                f.write(chunk)
 
         # Return a success response
         return request.make_response("Upload successful", status=200)

@@ -74,7 +74,6 @@ export class UploadWidget extends Component {
 
       const changes = { [this.props.name]: '' };
       await this.props.record.update(changes, { save: this.props.autosave });
-      console.log(this);
     }
 }
 
