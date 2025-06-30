@@ -47,21 +47,30 @@ export class UploadWidget extends Component {
         alert('Please enter a save location.');
         return;
       }
-      const date = new Date().toISOString();
-      const formData = new FormData();
-      formData.append('file', this.state.file);
-      formData.append('time_stamp', date);
-      formData.append('res_model', this.props.record._config.resModel);
-      formData.append('save_location', this.state.saveLocation);
+      try{
+        const date = new Date().toISOString();
+        const formData = new FormData();
+        formData.append('file', this.state.file);
+        formData.append('time_stamp', date);
+        formData.append('res_model', this.props.record._config.resModel);
+        formData.append('save_location', this.state.saveLocation);
 
-      this.state.uploading = true;
-      await fetch('/website_slides_attachment/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const changes = { [this.props.name]: this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' ) };
-      await this.props.record.update(changes, { save: this.props.autosave });
-      this.state.uploading = false;
+        this.state.uploading = true;
+        const response = await fetch('/website_slides_attachment/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!response.ok) {
+          throw new Error(response.statusText);
+        }
+        const changes = { [this.props.name]: this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' ) };
+        await this.props.record.update(changes, { save: this.props.autosave });
+        this.state.uploading = false;
+      } 
+      catch (error) {
+        this.state.uploading = false;
+        alert('Upload Failed with error: ' + error.message);
+      }
     }
     async onRemove(){
       const formData = new FormData();

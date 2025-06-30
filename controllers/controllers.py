@@ -1,27 +1,3 @@
-# -*- coding: utf-8 -*-
-# from odoo import http
-# from odoo.http import request, content_disposition
-# import os
-
-
-# class WebsiteSlidesAttachment(http.Controller):
-#     @http.route('/website_slides_attachment/website_slides_attachment', auth='public')
-#     def index(self, **kw):
-#         return "Hello, world"
-
-#     @http.route('/website_slides_attachment/website_slides_attachment/objects', auth='public')
-#     def list(self, **kw):
-#         return http.request.render('website_slides_attachment.listing', {
-#             'root': '/website_slides_attachment/website_slides_attachment',
-#             'objects': http.request.env['website_slides_attachment.website_slides_attachment'].search([]),
-#         })
-
-#     @http.route('/website_slides_attachment/website_slides_attachment/objects/<model("website_slides_attachment.website_slides_attachment"):obj>', auth='public')
-#     def object(self, obj, **kw):
-#         return http.request.render('website_slides_attachment.object', {
-#             'object': obj
-#         })
-
 import logging
 from odoo import http
 from odoo.http import request
@@ -54,20 +30,16 @@ class UploadController(http.Controller):
     @http.route('/website_slides_attachment/remove', type='http', auth='user', csrf=False)
     def remove_file(self, **kwargs):
         file_path = request.httprequest.form.get('file_path')
-        print('file_path is: ', file_path)
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
-            print('file removed')
             return request.make_response("File removed successfully", status=200)
         else:
             return request.make_response("File not found", status=404)
 
     @http.route('/website_slides_attachment/download/<int:id>/filename=<file_name>', type='http', auth='user', csrf=False)
     def download_file(self, id=None, file_name=None, **kwargs):
-        #file_path = request.httprequest.form.get('file_path')
         slide = request.env['slide.slide'].search([('id', '=', id)])
         file_path = slide.video_binary_content
-        print('file_path is: ', file_path)
         if file_path and os.path.exists(file_path):
             file_size = os.path.getsize(file_path)
             file_stream = open(file_path, 'rb')
