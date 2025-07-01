@@ -1,7 +1,7 @@
 {
 	"folders": [
 		{
-			"path": ".."
+			"path": "."
 		},
 		{
 			"path": "../../env18"
@@ -11,6 +11,7 @@
 		}
 	],
 	"settings": {
-		"python.languageServer": "None"
+		"python.languageServer": "None",
+		"Odoo.selectedConfiguration": "5"
 	}
 }

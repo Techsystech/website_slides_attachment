@@ -5,14 +5,9 @@ import base64
 
 
 class Slide(models.Model):
-    _inherit = 'slide.slide'
+    _inherit = "slide.slide"
 
-    video_source_type = fields.Selection([
-        ('youtube', 'YouTube'),
-        ('google_drive', 'Google Drive'),
-        ('vimeo', 'Vimeo'),
-        ('local', 'Local File'),],
-        string='Video Source', compute="_compute_video_source_type")
+    video_source_type = fields.Selection(selection_add=([('local', 'Local File')]))
 
     is_local_video = fields.Boolean()
 

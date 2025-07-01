@@ -1,0 +1,12 @@
+[
+  {
+    "label": "odoo",
+    "config": [
+      "--dev=all",
+      "--db-filter=^18"
+    ],
+    "odooBinPath": "/root/odoo/odoo18/odoo/odoo-bin",
+    "odooConfPath": "/root/odoo/odoo18/.odoorc",
+    "active": true
+  }
+]
