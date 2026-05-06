@@ -17,64 +17,53 @@ export class UploadWidget extends Component {
       this.state = useState({
         file: null,
         filename: null,
-        saveLocation: '',
         uploading: false,
       });
-      this.name = null;
-    }
+   }
 
     onFileChange(event) {
-      this.state.filename = event.target.files[0].name;
-      this.state.file = event.target.files[0];
+      this.state.filename = event.target.files[0]?.name || null;
+      this.state.file = event.target.files[0] || null;
     }
-    onSaveLocationChange(event) {
-      this.state.saveLocation = event.target.value;
-      if (!this.state.saveLocation.startsWith('/')) {
-        this.state.saveLocation = '/' + this.state.saveLocation;
-      }
-      if (!this.state.saveLocation.endsWith('/')) {
-        this.state.saveLocation += '/';
-      }
-      document.querySelector('#save_location').value = this.state.saveLocation;
-    }
-   
+
     async startUpload() {
       if (!this.state.file) {
         alert('Please select a file to upload.');
         return;
       }
-      if (!this.state.saveLocation) {
-        alert('Please enter a save location.');
+      if (!this.props.record.resId) {
+        alert('Please save the slide before uploading a local video.');
         return;
       }
-      try{
-        const date = new Date().toISOString();
+      try {
         const formData = new FormData();
         formData.append('file', this.state.file);
-        formData.append('time_stamp', date);
-        formData.append('res_model', this.props.record._config.resModel);
-        formData.append('save_location', this.state.saveLocation);
+        formData.append('res_id', this.props.record.resId);
+        formData.append('csrf_token', odoo.csrf_token);
 
         this.state.uploading = true;
         const response = await fetch('/website_slides_attachment/upload', {
           method: 'POST',
           body: formData,
         });
+        const payload = await response.json();
         if (!response.ok) {
-          throw new Error(response.statusText);
+          throw new Error(payload.error || response.statusText);
         }
-        const changes = { [this.props.name]: this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' ) };
+        const changes = { [this.props.name]: payload.token };
         await this.props.record.update(changes, { save: this.props.autosave });
         this.state.uploading = false;
-      } 
+      }
       catch (error) {
         this.state.uploading = false;
         alert('Upload Failed with error: ' + error.message);
       }
     }
+
     async onRemove(){
       const formData = new FormData();
-      formData.append('file_path', this.props.record.data[this.props.name]);
+      formData.append('attachment_token', this.props.record.data[this.props.name]);
+      formData.append('csrf_token', odoo.csrf_token);
 
       await fetch('/website_slides_attachment/remove', {
         method: 'POST',

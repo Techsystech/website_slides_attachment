@@ -4,9 +4,8 @@
     <div>
       <t t-if="!this.props.record.data[this.props.name]">
         <input type="file" class="o_input_file" t-on-change="onFileChange" t-att-accept="this.props.acceptedFileExtensions"/>
-        <input type="text" class="o_input_text" t-on-change="onSaveLocationChange" placeholder="File Save Location" id="save_location"/>
         <button t-on-click="startUpload" class="btn btn-primary">Upload</button>
-        <t  t-if="this.state.uploading">
+        <t t-if="this.state.uploading">
           <div id="upload-overlay" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(255,255,255,0.7); z-index:9999;"/>
           <div>
             <progress value="0" max="100" t-att-value="progress"></progress>
