@@ -16,5 +16,19 @@
         </xpath>
       </field>
     </record>
+
+    <template id="slide_content_detailed_local_video" inherit_id="website_slides.slide_content_detailed" name="Slide: Detailed Local Video Playback">
+      <xpath expr="//div[@t-if=&quot;slide.slide_category == 'video'&quot;]" position="replace">
+        <div t-if="slide.slide_category == 'video' and slide.video_source_type == 'local'" class="ratio ratio-16x9 embed-responsive-item mb8">
+          <video class="o-FileViewer-view" controls="controls" preload="metadata">
+            <source t-att-src="'/website_slides_attachment/download/%s' % slide.id" t-att-type="slide._get_local_video_attachment().mimetype or 'video/mp4'"/>
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        <div t-elif="slide.slide_category == 'video'" class="ratio ratio-16x9 embed-responsive-item mb8">
+          <t t-out="slide.embed_code"/>
+        </div>
+      </xpath>
+    </template>
   </data>
 </odoo>

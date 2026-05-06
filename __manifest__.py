@@ -24,6 +24,8 @@
     ],
     'assets': {
     'web.assets_frontend': [
+        'website_slides_attachment/static/src/slide_upload_dialog_patch.js',
+        'website_slides_attachment/static/src/slide_upload_dialog_patch.xml',
         'website_slides_attachment/static/src/slides_course_fullscreen_player_override.js',
         'website_slides_attachment/static/src/slides_course_fullscreen_player_override.xml',
     ],

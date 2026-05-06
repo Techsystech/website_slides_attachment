@@ -3,8 +3,8 @@ import json
 import logging
 import mimetypes
 
-from odoo import http
-from odoo.exceptions import AccessError, MissingError
+from odoo import _, http
+from odoo.exceptions import AccessError, MissingError, UserError
 from odoo.http import request
 from werkzeug.exceptions import Forbidden, NotFound
 from werkzeug.utils import secure_filename
@@ -64,6 +64,70 @@ class UploadController(http.Controller):
             "name": attachment.name,
             "token": token,
         })
+
+    def _create_local_video_attachment(self, slide, filename, mimetype, content):
+        attachment = request.env["ir.attachment"].sudo().create({
+            "name": secure_filename(filename or slide.name or "local-video") or "local-video",
+            "type": "binary",
+            "datas": content,
+            "mimetype": mimetype or mimetypes.guess_type(filename or "")[0] or "video/mp4",
+            "res_model": "slide.slide",
+            "res_id": slide.id,
+        })
+        slide.sudo().write({
+            "is_local_video": True,
+            "video_binary_content": slide._local_video_attachment_token(attachment.id),
+        })
+        return attachment
+
+    @http.route("/website_slides_attachment/add_local_video_slide", type="json", auth="user", methods=["POST"], website=True)
+    def add_local_video_slide(self, **post):
+        content = post.get("local_video_content")
+        if not content:
+            return {"error": _("Missing upload file")}
+        try:
+            channel = request.env["slide.channel"].browse(int(post.get("channel_id") or 0)).exists()
+            if not channel or not channel.can_upload:
+                return {"error": _("You cannot upload on this channel.")}
+            values = {
+                "channel_id": channel.id,
+                "name": post.get("name") or secure_filename(post.get("file_name") or "Local Video"),
+                "slide_category": "video",
+                "is_local_video": True,
+                "is_published": bool(post.get("is_published")),
+                "user_id": request.env.uid,
+            }
+            if post.get("duration"):
+                values["completion_time"] = int(post["duration"]) / 60
+            if post.get("tag_ids"):
+                values["tag_ids"] = post["tag_ids"]
+            if post.get("category_id"):
+                category_id = post["category_id"][0]
+                if category_id == 0:
+                    category = request.env["slide.slide"].sudo().create({
+                        "channel_id": channel.id,
+                        "name": post["category_id"][1]["name"],
+                        "is_category": True,
+                        "is_published": True,
+                    })
+                    values["sequence"] = category.sequence + 1
+                else:
+                    category = request.env["slide.slide"].browse(category_id)
+                    values["sequence"] = category.sequence + 1
+                    values["category_id"] = category.id
+            else:
+                category = False
+            slide = request.env["slide.slide"].sudo().create(values)
+            self._create_local_video_attachment(slide, post.get("file_name"), post.get("file_type"), content)
+            channel._resequence_slides(slide, force_category=category)
+            redirect_url = "/slides/%s" % request.env["ir.http"]._slug(channel) if channel.channel_type == "training" else "/slides/slide/%s" % request.env["ir.http"]._slug(slide)
+            return {"url": redirect_url, "slide_id": slide.id, "category_id": slide.category_id}
+        except UserError as e:
+            _logger.error(e)
+            return {"error": e.args[0]}
+        except Exception as e:
+            _logger.exception("Failed creating local video slide")
+            return {"error": _("Internal server error, please try again later or contact administrator.\nHere is the error message: %s", e)}
 
     @http.route("/website_slides_attachment/remove", type="http", auth="user", methods=["POST"])
     def remove_file(self, **kwargs):

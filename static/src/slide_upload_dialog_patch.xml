@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="website_slides_attachment.SlideCategoryTutorial.LocalVideo">
+        <div class="h5">Upload a local video</div>
+        <div>
+            <span>Select a video from your device. Odoo will create the slide and store the video as a slide attachment.</span><br/>
+            <span>This is intended for videos hosted directly in Odoo instead of YouTube, Vimeo, or Google Drive.</span>
+        </div>
+    </t>
+
+    <t t-inherit="website_slides.SlideUploadSourceTypes" t-inherit-mode="extension">
+        <xpath expr="//div[contains(@class, 'form-check')][.//input[@id='source_type_external']]" position="attributes">
+            <attribute name="t-if">!props.attributes.localOnly</attribute>
+        </xpath>
+        <xpath expr="//div[t-else=''][contains(@class, 'mb-3')][.//input[@t-att-name='props.attributes.urlInputName']]" position="attributes">
+            <attribute name="t-if">!props.attributes.localOnly</attribute>
+        </xpath>
+    </t>
+</templates>
