@@ -37,6 +37,17 @@ class UploadController(http.Controller):
             return request.env["ir.attachment"]
         return request.env["ir.attachment"].sudo().browse(attachment_id).exists()
 
+    def _form_json_value(self, post, key, default=None):
+        value = post.get(key)
+        if not value:
+            return default
+        if not isinstance(value, str):
+            return value
+        return json.loads(value)
+
+    def _form_truthy(self, post, key):
+        return str(post.get(key, "")).lower() in ("1", "true", "yes", "on")
+
     @http.route("/website_slides_attachment/upload", type="http", auth="user", methods=["POST"], max_content_length=None)
     def upload_file(self, **kwargs):
         file_storage = request.httprequest.files.get("file")
@@ -65,12 +76,14 @@ class UploadController(http.Controller):
             "token": token,
         })
 
-    def _create_local_video_attachment(self, slide, filename, mimetype, content):
+    def _create_local_video_attachment(self, slide, file_storage):
+        filename = secure_filename(file_storage.filename or slide.name or "local-video") or "local-video"
+        mimetype = file_storage.mimetype or mimetypes.guess_type(filename)[0] or "video/mp4"
         attachment = request.env["ir.attachment"].sudo().create({
-            "name": secure_filename(filename or slide.name or "local-video") or "local-video",
+            "name": filename,
             "type": "binary",
-            "datas": content,
-            "mimetype": mimetype or mimetypes.guess_type(filename or "")[0] or "video/mp4",
+            "datas": base64.b64encode(file_storage.stream.read()),
+            "mimetype": mimetype,
             "res_model": "slide.slide",
             "res_id": slide.id,
         })
@@ -80,33 +93,42 @@ class UploadController(http.Controller):
         })
         return attachment
 
-    @http.route("/website_slides_attachment/add_local_video_slide", type="json", auth="user", methods=["POST"], website=True)
+    @http.route(
+        "/website_slides_attachment/add_local_video_slide",
+        type="http",
+        auth="user",
+        methods=["POST"],
+        website=True,
+        max_content_length=None,
+    )
     def add_local_video_slide(self, **post):
-        content = post.get("local_video_content")
-        if not content:
-            return {"error": _("Missing upload file")}
+        file_storage = request.httprequest.files.get("local_video_file")
+        if not file_storage or not file_storage.filename:
+            return self._json_response({"error": _("Missing upload file")}, status=400)
         try:
             channel = request.env["slide.channel"].browse(int(post.get("channel_id") or 0)).exists()
             if not channel or not channel.can_upload:
-                return {"error": _("You cannot upload on this channel.")}
+                return self._json_response({"error": _("You cannot upload on this channel.")}, status=403)
             values = {
                 "channel_id": channel.id,
                 "name": post.get("name") or secure_filename(post.get("file_name") or "Local Video"),
                 "slide_category": "video",
                 "is_local_video": True,
-                "is_published": bool(post.get("is_published")),
+                "is_published": self._form_truthy(post, "is_published"),
                 "user_id": request.env.uid,
             }
             if post.get("duration"):
                 values["completion_time"] = int(post["duration"]) / 60
-            if post.get("tag_ids"):
-                values["tag_ids"] = post["tag_ids"]
-            if post.get("category_id"):
-                category_id = post["category_id"][0]
+            tag_ids = self._form_json_value(post, "tag_ids")
+            if tag_ids:
+                values["tag_ids"] = tag_ids
+            category_value = self._form_json_value(post, "category_id")
+            if category_value:
+                category_id = category_value[0]
                 if category_id == 0:
                     category = request.env["slide.slide"].sudo().create({
                         "channel_id": channel.id,
-                        "name": post["category_id"][1]["name"],
+                        "name": category_value[1]["name"],
                         "is_category": True,
                         "is_published": True,
                     })
@@ -118,16 +140,16 @@ class UploadController(http.Controller):
             else:
                 category = False
             slide = request.env["slide.slide"].sudo().create(values)
-            self._create_local_video_attachment(slide, post.get("file_name"), post.get("file_type"), content)
+            self._create_local_video_attachment(slide, file_storage)
             channel._resequence_slides(slide, force_category=category)
             redirect_url = "/slides/%s" % request.env["ir.http"]._slug(channel) if channel.channel_type == "training" else "/slides/slide/%s" % request.env["ir.http"]._slug(slide)
-            return {"url": redirect_url, "slide_id": slide.id, "category_id": slide.category_id}
+            return self._json_response({"url": redirect_url, "slide_id": slide.id, "category_id": slide.category_id.id})
         except UserError as e:
             _logger.error(e)
-            return {"error": e.args[0]}
+            return self._json_response({"error": e.args[0]}, status=400)
         except Exception as e:
             _logger.exception("Failed creating local video slide")
-            return {"error": _("Internal server error, please try again later or contact administrator.\nHere is the error message: %s", e)}
+            return self._json_response({"error": _("Internal server error, please try again later or contact administrator.\nHere is the error message: %s", e)}, status=500)
 
     @http.route("/website_slides_attachment/remove", type="http", auth="user", methods=["POST"])
     def remove_file(self, **kwargs):

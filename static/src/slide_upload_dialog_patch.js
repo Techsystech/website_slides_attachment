@@ -1,9 +1,7 @@
 /** @odoo-module **/
 
 import { _t } from "@web/core/l10n/translation";
-import { getDataURLFromFile } from "@web/core/utils/urls";
 import { patch } from "@web/core/utils/patch";
-import { rpc } from "@web/core/network/rpc";
 import { SlideUploadCategory } from "@website_slides/js/public/components/slide_upload_dialog/slide_upload_category";
 import { SlideUploadDialog } from "@website_slides/js/public/components/slide_upload_dialog/slide_upload_dialog";
 
@@ -30,11 +28,31 @@ patch(SlideUploadDialog.prototype, {
         }
         this.state.page = "upload";
         this.state.size = "md";
-        const data = await rpc("/website_slides_attachment/add_local_video_slide", formValues);
-        if (data.error) {
+
+        const body = new FormData();
+        for (const [key, value] of Object.entries(formValues)) {
+            if (value === undefined || value === null) {
+                continue;
+            }
+            const fieldValue = typeof value === "object" && !(value instanceof File)
+                ? JSON.stringify(value)
+                : value;
+            body.append(key, fieldValue);
+        }
+        if (odoo.csrf_token) {
+            body.append("csrf_token", odoo.csrf_token);
+        }
+
+        const response = await fetch("/website_slides_attachment/add_local_video_slide", {
+            method: "POST",
+            body,
+            credentials: "same-origin",
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
             this.state.page = previousPage;
             this.state.size = "lg";
-            this.state.alertMsg = data.error;
+            this.state.alertMsg = data.error || _t("Upload failed. Please try again.");
             return;
         }
         window.location = data.url;
@@ -71,8 +89,7 @@ patch(SlideUploadCategory.prototype, {
         }
         this.file.name = file.name;
         this.file.type = file.type || "video/mp4";
-        const dataURL = await getDataURLFromFile(file);
-        this.file.data = dataURL.split(",", 2)[1];
+        this.file.file = file;
         if (!this.state.form.slideName) {
             this.state.form.slideName = file.name.replace(/\.[^.]+$/, "");
         }
@@ -91,7 +108,7 @@ patch(SlideUploadCategory.prototype, {
             file_name: this.file.name,
             file_type: this.file.type,
             is_published: forcePublished,
-            local_video_content: this.file.data,
+            local_video_file: this.file.file,
             name: this.state.form.slideName,
         }, this._getSelectMenuValues());
     },

@@ -42,3 +42,19 @@ class TestLocalVideoStorage(TransactionCase):
     def test_special_character_titles_are_not_used_in_playback_url(self):
         slide_id = 123
         self.assertEqual(f'/website_slides_attachment/download/{slide_id}', '/website_slides_attachment/download/123')
+
+    def test_local_video_upload_uses_multipart_not_base64_json(self):
+        addon_root = Path(__file__).resolve().parents[1]
+        upload_js = (addon_root / 'static/src/slide_upload_dialog_patch.js').read_text()
+        controller = (addon_root / 'controllers/controllers.py').read_text()
+
+        self.assertNotIn('getDataURLFromFile', upload_js)
+        self.assertNotIn('local_video_content', upload_js)
+        self.assertNotIn('local_video_content', controller)
+        self.assertIn('FormData', upload_js)
+        self.assertIn('local_video_file', upload_js)
+        self.assertIn('request.httprequest.files.get("local_video_file")', controller)
+        self.assertNotIn(
+            'type="json", auth="user", methods=["POST"], website=True)\n    def add_local_video_slide',
+            controller,
+        )
