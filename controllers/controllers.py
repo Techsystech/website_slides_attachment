@@ -5,6 +5,7 @@ import logging
 import mimetypes
 import mmap
 import os
+import shutil
 import tempfile
 
 from odoo import _, http
@@ -74,8 +75,12 @@ class UploadController(http.Controller):
 
         # Werkzeug's FileStorage may already be backed by a temp file.
         # Save to our own temp path so we can mmap it safely.
+        # NOTE: we cannot use file_storage.save() because Odoo monkey-patches
+        # FileStorage.save to call copyfileobj(self.stream, dst) without
+        # converting a string dst to an open file handle.
         temp_path = tempfile.mktemp()
-        file_storage.save(temp_path)
+        with open(temp_path, "wb") as dst:
+            shutil.copyfileobj(file_storage.stream, dst, STREAM_CHUNK_SIZE)
 
         try:
             with open(temp_path, "rb") as f:
