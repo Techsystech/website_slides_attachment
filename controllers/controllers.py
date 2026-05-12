@@ -3,20 +3,19 @@ import hashlib
 import json
 import logging
 import mimetypes
+import mmap
 import os
-import shutil
 import tempfile
 
 from odoo import _, http
 from odoo.exceptions import AccessError, MissingError, UserError
 from odoo.http import request
-from odoo.tools import config
 from werkzeug.exceptions import Forbidden, NotFound
 from werkzeug.utils import secure_filename
 
 _logger = logging.getLogger(__name__)
 
-# Chunk size for streaming uploads/downloads (512 KB)
+# Chunk size for streaming downloads
 STREAM_CHUNK_SIZE = 512 * 1024
 
 
@@ -57,66 +56,44 @@ class UploadController(http.Controller):
         return str(post.get(key, "")).lower() in ("1", "true", "yes", "on")
 
     # ------------------------------------------------------------------
-    # Streaming helpers — bypass base64 for large video files
+    # Streaming upload — memory-mapped to bypass base64 and avoid
+    # loading multi-hundred-megabyte files into Python heap.
     # ------------------------------------------------------------------
 
-    def _stream_upload_to_temp(self, file_storage):
-        """Stream werkzeug FileStorage to a temp file, return path + SHA-1 + size."""
-        tmp = tempfile.NamedTemporaryFile(delete=False)
-        sha = hashlib.sha1()
-        size = 0
-        try:
-            while True:
-                chunk = file_storage.stream.read(STREAM_CHUNK_SIZE)
-                if not chunk:
-                    break
-                tmp.write(chunk)
-                sha.update(chunk)
-                size += len(chunk)
-            tmp.close()
-            return tmp.name, sha.hexdigest(), size
-        except Exception:
-            tmp.close()
-            os.unlink(tmp.name)
-            raise
-
-    def _move_to_filestore(self, temp_path, checksum):
-        """Move a temp file into the Odoo filestore and return store_fname."""
-        # Path format mirrors ir.attachment._get_path:  <sha[:2]>/<sha>
-        store_fname = checksum[:2] + "/" + checksum
-        filestore = request.env["ir.attachment"]._filestore()
-        full_path = os.path.join(filestore, store_fname)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-
-        # If a file already exists with the same SHA, it has identical content
-        # (collision probability is negligible).  Overwrite it.
-        shutil.move(temp_path, full_path)
-        return store_fname
-
     def _create_streaming_attachment(self, slide, file_storage):
-        """Create an ir.attachment from a streamed upload without base64 round-trip."""
+        """Create an ir.attachment from a streamed upload via memory-mapped file.
+
+        Werkzeug already stores large uploads in a temp file on disk.
+        We memory-map that temp file and pass the mmap object as ``raw``.
+        Odoo's ``_get_datas_related_values`` reads from the mmap to compute
+        the SHA-1 and write to the filestore, but the OS pages data in/out
+        instead of loading the whole file into RAM.
+        """
         filename = secure_filename(file_storage.filename or slide.name or "local-video") or "local-video"
         mimetype = file_storage.mimetype or mimetypes.guess_type(filename)[0] or "video/mp4"
 
-        temp_path, checksum, file_size = self._stream_upload_to_temp(file_storage)
-        try:
-            store_fname = self._move_to_filestore(temp_path, checksum)
-        except Exception:
-            # Ensure temp file is cleaned up on failure
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-            raise
+        # Werkzeug's FileStorage may already be backed by a temp file.
+        # Save to our own temp path so we can mmap it safely.
+        temp_path = tempfile.mktemp()
+        file_storage.save(temp_path)
 
-        attachment = request.env["ir.attachment"].sudo().create({
-            "name": filename,
-            "type": "binary",
-            "store_fname": store_fname,
-            "checksum": checksum,
-            "file_size": file_size,
-            "mimetype": mimetype,
-            "res_model": "slide.slide",
-            "res_id": slide.id,
-        })
+        try:
+            with open(temp_path, "rb") as f:
+                with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                    attachment = request.env["ir.attachment"].sudo().create({
+                        "name": filename,
+                        "type": "binary",
+                        "raw": mm,
+                        "mimetype": mimetype,
+                        "res_model": "slide.slide",
+                        "res_id": slide.id,
+                    })
+        finally:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
         return attachment
 
     # ------------------------------------------------------------------
