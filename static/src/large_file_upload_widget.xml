@@ -1,22 +1,49 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <templates>
   <t t-name="website_slides_attachment.large_file_upload_widget_template">
-    <div>
+    <div class="o_local_video_widget">
       <t t-if="!this.props.record.data[this.props.name]">
-        <input type="file" class="o_input_file" t-on-change="onFileChange" t-att-accept="this.props.acceptedFileExtensions"/>
-        <button t-on-click="startUpload" class="btn btn-primary">Upload</button>
+        <div class="d-flex align-items-center gap-2">
+          <input type="file" class="o_input_file form-control" t-on-change="onFileChange" t-att-accept="this.props.acceptedFileExtensions"/>
+          <button t-on-click="startUpload" class="btn btn-primary" t-att-disabled="this.state.uploading">
+            <i class="fa fa-upload me-1" t-if="!this.state.uploading"/>
+            <span t-if="!this.state.uploading">Upload</span>
+            <span t-else="">Uploading…</span>
+          </button>
+        </div>
         <t t-if="this.state.uploading">
-          <div id="upload-overlay" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(255,255,255,0.7); z-index:9999;"/>
-          <div>
-            <progress value="0" max="100" t-att-value="progress"></progress>
-            <br/>
-            <span t-esc="'Uploading...'"></span>
+          <div class="mt-2">
+            <div class="progress" style="height: 20px;">
+              <div class="progress-bar progress-bar-striped progress-bar-animated"
+                   role="progressbar"
+                   t-att-style="'width: ' + this.state.progress + '%;'"
+                   t-att-aria-valuenow="this.state.progress"
+                   aria-valuemin="0"
+                   aria-valuemax="100">
+                <t t-esc="this.state.progress + '%'"/>
+              </div>
+            </div>
+          </div>
+        </t>
+        <t t-if="this.state.filename and !this.state.uploading">
+          <div class="text-muted small mt-1">
+            <i class="fa fa-file-o me-1"/>
+            Selected: <t t-esc="this.state.filename"/>
           </div>
         </t>
       </t>
       <t t-else="">
-        <span t-esc="this.props.record.data[this.props.name]"/>
-        <button t-on-click="onRemove" class="btn btn-secondary">Remove</button>
+        <div class="d-flex align-items-center gap-2">
+          <i class="fa fa-file-video-o text-primary fs-4"/>
+          <div class="flex-grow-1">
+            <div class="fw-bold" t-esc="this.props.record.data.video_attachment_name || this.props.record.data[this.props.name]"/>
+            <div class="text-muted small" t-if="this.props.record.data.video_attachment_mimetype" t-esc="this.props.record.data.video_attachment_mimetype"/>
+          </div>
+          <button t-on-click="onRemove" class="btn btn-outline-danger btn-sm">
+            <i class="fa fa-trash-o me-1"/>
+            Remove
+          </button>
+        </div>
       </t>
     </div>
   </t>

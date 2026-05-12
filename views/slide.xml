@@ -5,14 +5,33 @@
       <field name="model">slide.slide</field>
       <field name="inherit_id" ref="website_slides.view_slide_slide_form"/>
       <field name="arch" type="xml">
-        <xpath expr="//field[@name='slide_category']" position="after">
-          <field name="is_local_video" invisible="slide_category != 'video'"/>
-        </xpath>
-        <xpath expr="//field[@name='document_binary_content']" position="after">
-          <field name="video_binary_content" widget="large_file_upload_widget" options="{'accepted_file_extensions': '.mp4'}" invisible="slide_category != 'video' or is_local_video == False"/>
-        </xpath>
-        <xpath expr="//field[@name='video_url']" position="attributes">
-          <attribute name="invisible">slide_category != 'video' and source_type != 'external' or is_local_video == True</attribute>
+        <!-- Replace video_url with a source-aware video section -->
+        <xpath expr="//field[@name='video_url']" position="replace">
+          <!-- Video Source selector shown for all video slides -->
+          <field name="video_source_type"
+                 string="Video Source"
+                 invisible="slide_category != 'video'"
+                 readonly="slide_category != 'video'"
+                 required="slide_category == 'video'"/>
+          <!-- URL field for external video sources -->
+          <field name="video_url"
+                 invisible="slide_category != 'video' or video_source_type == 'local'"
+                 readonly="slide_category != 'video' or video_source_type == 'local'"
+                 required="slide_category == 'video' and video_source_type != 'local'"
+                 placeholder='e.g "www.youtube.com/watch?v=ebBez6bcSEc"'
+                 widget="url"/>
+          <!-- Local video upload section -->
+          <div class="o_local_video_upload"
+               invisible="slide_category != 'video' or video_source_type != 'local'"
+               colspan="2">
+            <div class="card bg-light">
+              <div class="card-body">
+                <field name="video_binary_content"
+                       widget="large_file_upload_widget"
+                       options="{'accepted_file_extensions': '.mp4,.mov,.webm,.mkv'}"/>
+              </div>
+            </div>
+          </div>
         </xpath>
       </field>
     </record>

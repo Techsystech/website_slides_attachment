@@ -14,13 +14,27 @@ LOCAL_ATTACHMENT_PREFIX = "ir.attachment:"
 class Slide(models.Model):
     _inherit = "slide.slide"
 
-    video_source_type = fields.Selection(selection_add=([('local', 'Local File')]))
+    video_source_type = fields.Selection(
+        selection_add=[('local', 'Local Video')],
+        store=True, readonly=False,
+        help="Select the source for this video. Choose 'Local Video' to upload a file from your device.",
+    )
 
     is_local_video = fields.Boolean()
 
     video_binary_content = fields.Char(
         string='Video Attachment',
         help='Local video attachment token. Legacy filesystem paths are migrated to ir.attachment tokens.'
+    )
+
+    video_attachment_name = fields.Char(
+        string='Attached File',
+        compute='_compute_video_attachment_info',
+    )
+
+    video_attachment_mimetype = fields.Char(
+        string='File Type',
+        compute='_compute_video_attachment_info',
     )
 
     @api.model
@@ -111,20 +125,29 @@ class Slide(models.Model):
             if slide.is_local_video:
                 slide.video_source_type = 'local'
 
-    def _compute_slide_icon_class(self):
-        icon_per_slide_type = {
-            'image': 'fa-file-picture-o',
-            'article': 'fa-file-text-o',
-            'quiz': 'fa-question-circle-o',
-            'pdf': 'fa-file-pdf-o',
-            'sheet': 'fa-file-excel-o',
-            'doc': 'fa-file-word-o',
-            'slides': 'fa-file-powerpoint-o',
-            'youtube_video': 'fa-youtube-play',
-            'google_drive_video': 'fa-play-circle-o',
-            'vimeo_video': 'fa-vimeo',
-        }
+    @api.depends('video_binary_content')
+    def _compute_video_attachment_info(self):
         for slide in self:
-            slide.slide_icon_class = icon_per_slide_type.get(slide.slide_type, 'fa-file-o')
+            attachment = slide._get_local_video_attachment()
+            if attachment:
+                slide.video_attachment_name = attachment.name
+                slide.video_attachment_mimetype = attachment.mimetype
+            else:
+                slide.video_attachment_name = False
+                slide.video_attachment_mimetype = False
+
+    @api.onchange('video_source_type')
+    def _onchange_video_source_type(self):
+        for slide in self:
+            if slide.video_source_type == 'local':
+                slide.is_local_video = True
+                slide.video_url = False
+            else:
+                slide.is_local_video = False
+                slide.video_binary_content = False
+
+    def _compute_slide_icon_class(self):
+        super()._compute_slide_icon_class()
+        for slide in self:
             if slide.slide_category == 'video' and slide.video_source_type == 'local':
-                slide.slide_icon_class = icon_per_slide_type.get('youtube_video', 'fa-file-o')
+                slide.slide_icon_class = 'fa-youtube-play'

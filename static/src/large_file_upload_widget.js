@@ -18,6 +18,7 @@ export class UploadWidget extends Component {
         file: null,
         filename: null,
         uploading: false,
+        progress: 0,
       });
    }
 
@@ -35,29 +36,58 @@ export class UploadWidget extends Component {
         alert('Please save the slide before uploading a local video.');
         return;
       }
-      try {
-        const formData = new FormData();
-        formData.append('file', this.state.file);
-        formData.append('res_id', this.props.record.resId);
-        formData.append('csrf_token', odoo.csrf_token);
+      const formData = new FormData();
+      formData.append('file', this.state.file);
+      formData.append('res_id', this.props.record.resId);
+      formData.append('csrf_token', odoo.csrf_token);
 
-        this.state.uploading = true;
-        const response = await fetch('/website_slides_attachment/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload.error || response.statusText);
-        }
+      this.state.uploading = true;
+      this.state.progress = 0;
+
+      try {
+        const payload = await this._uploadWithProgress(formData);
         const changes = { [this.props.name]: payload.token };
         await this.props.record.update(changes, { save: this.props.autosave });
         this.state.uploading = false;
-      }
-      catch (error) {
+        this.state.progress = 0;
+        this.state.file = null;
+        this.state.filename = null;
+      } catch (error) {
         this.state.uploading = false;
+        this.state.progress = 0;
         alert('Upload Failed with error: ' + error.message);
       }
+    }
+
+    _uploadWithProgress(formData) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            this.state.progress = Math.round((event.loaded / event.total) * 100);
+          }
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject(new Error('Invalid server response'));
+            }
+          } else {
+            let msg = xhr.statusText;
+            try {
+              const payload = JSON.parse(xhr.responseText);
+              msg = payload.error || msg;
+            } catch (e) {}
+            reject(new Error(msg));
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+        xhr.open('POST', '/website_slides_attachment/upload');
+        xhr.send(formData);
+      });
     }
 
     async onRemove(){
@@ -72,6 +102,8 @@ export class UploadWidget extends Component {
 
       const changes = { [this.props.name]: '' };
       await this.props.record.update(changes, { save: this.props.autosave });
+      this.state.file = null;
+      this.state.filename = null;
     }
 }
 
