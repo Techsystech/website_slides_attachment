@@ -19,6 +19,8 @@ export class UploadWidget extends Component {
         filename: null,
         uploading: false,
         progress: 0,
+        uploadedFileName: null,
+        uploadedFileMimetype: null,
       });
    }
 
@@ -35,6 +37,11 @@ export class UploadWidget extends Component {
       if (!this.props.record.resId) {
         // Auto-save the new record so it gets an ID before we create an
         // attachment that needs res_model/res_id.
+        const fileName = this.state.file?.name || 'Local Video';
+        const baseName = fileName.replace(/\.[^.]+$/, "");
+        if (!this.props.record.data.name) {
+          await this.props.record.update({ name: baseName });
+        }
         const saved = await this.props.record.save();
         if (!saved) {
           alert('Please fill in the required fields before uploading a local video.');
@@ -52,6 +59,8 @@ export class UploadWidget extends Component {
       try {
         const payload = await this._uploadWithProgress(formData);
         const changes = { [this.props.name]: payload.token };
+        this.state.uploadedFileName = payload.name || null;
+        this.state.uploadedFileMimetype = payload.mimetype || null;
         await this.props.record.update(changes, { save: this.props.autosave });
         this.state.uploading = false;
         this.state.progress = 0;
@@ -109,6 +118,8 @@ export class UploadWidget extends Component {
       await this.props.record.update(changes, { save: this.props.autosave });
       this.state.file = null;
       this.state.filename = null;
+      this.state.uploadedFileName = null;
+      this.state.uploadedFileMimetype = null;
     }
 }
 

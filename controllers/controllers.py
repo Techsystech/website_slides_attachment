@@ -73,6 +73,7 @@ class UploadController(http.Controller):
         return self._json_response({
             "id": attachment.id,
             "name": attachment.name,
+            "mimetype": attachment.mimetype,
             "token": token,
         })
 
