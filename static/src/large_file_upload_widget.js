@@ -33,8 +33,13 @@ export class UploadWidget extends Component {
         return;
       }
       if (!this.props.record.resId) {
-        alert('Please save the slide before uploading a local video.');
-        return;
+        // Auto-save the new record so it gets an ID before we create an
+        // attachment that needs res_model/res_id.
+        const saved = await this.props.record.save();
+        if (!saved) {
+          alert('Please fill in the required fields before uploading a local video.');
+          return;
+        }
       }
       const formData = new FormData();
       formData.append('file', this.state.file);

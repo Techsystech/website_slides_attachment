@@ -12,8 +12,5 @@
         <xpath expr="//div[contains(@class, 'form-check')][.//input[@id='source_type_external']]" position="attributes">
             <attribute name="t-if">!props.attributes.localOnly</attribute>
         </xpath>
-        <xpath expr="//div[t-else=''][contains(@class, 'mb-3')][.//input[@t-att-name='props.attributes.urlInputName']]" position="attributes">
-            <attribute name="t-if">!props.attributes.localOnly</attribute>
-        </xpath>
     </t>
 </templates>
