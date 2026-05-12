@@ -26,6 +26,12 @@ Fullscreen.include({
             return def;
         }
 
+        // Build the download URL in JS because encodeURIComponent is not
+        // available inside OWL template expressions (ctx.encodeURIComponent).
+        var filename = (slide.name || 'local-video') + '.mp4';
+        this._localVideoSrc = '/website_slides_attachment/download/' + slide.id +
+                              '/filename=' + encodeURIComponent(filename);
+
         var $content = this.$('.o_wslides_fs_content');
         $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
 
