@@ -32,6 +32,9 @@
               </div>
             </div>
           </div>
+          <!-- Hidden fields needed by the upload widget for display -->
+          <field name="video_attachment_name" invisible="1"/>
+          <field name="video_attachment_mimetype" invisible="1"/>
         </xpath>
       </field>
     </record>
