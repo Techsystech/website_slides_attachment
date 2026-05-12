@@ -5,30 +5,42 @@ import Fullscreen from "@website_slides/js/slides_course_fullscreen_player";
 
 Fullscreen.include({
     /**
+     * Render local video slides in fullscreen using a native <video> element.
      *
      * @private
      * @override
      */
-    _renderSlide: function() {
-        var def = this._super.apply(this, arguments);
-        if (this._renderSlideRunning) { return; }
-        this._renderSlideRunning = true;
-        try {
-            const slide = this._slideValue;
-            var $content = this.$('.o_wslides_fs_content');
-            if (slide.category === 'video' && slide.videoSourceType === 'local') {
-                $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
-                const videoViewer = document.querySelector('#embeddedVideoViewer');
-                videoViewer.addEventListener('ended', async (event) => {
-                    await this.trigger_up('slide_mark_completed', slide);
-                    await this.trigger_up('slide_go_next', slide);
-                });
-            }
-        }
-        finally {
-            this._renderSlideRunning = false;
+    _renderSlide: async function () {
+        // Let the base handle quiz / standard video types first.
+        var def = await this._super.apply(this, arguments);
+
+        const slide = this._slideValue;
+        if (slide.category !== 'video') {
+            return def;
         }
 
-        return Promise.all([def]);
+        // The base method only knows youtube / vimeo / google_drive.
+        // For local videos it renders nothing, so we fill the content here.
+        const isLocal = slide.videoSourceType === 'local' || slide.isLocalVideo;
+        if (!isLocal) {
+            return def;
+        }
+
+        console.log('[website_slides_attachment] rendering local video in fullscreen', slide.id, slide.videoSourceType);
+
+        var $content = this.$('.o_wslides_fs_content');
+        $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
+
+        const videoViewer = document.querySelector('#embeddedVideoViewer');
+        if (videoViewer) {
+            videoViewer.addEventListener('ended', async (event) => {
+                await this.trigger_up('slide_mark_completed', slide);
+                await this.trigger_up('slide_go_next', slide);
+            });
+        } else {
+            console.warn('[website_slides_attachment] #embeddedVideoViewer not found after render');
+        }
+
+        return def;
     },
 });
