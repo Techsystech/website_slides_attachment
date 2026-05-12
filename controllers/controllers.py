@@ -115,6 +115,10 @@ class UploadController(http.Controller):
         attachment = self._create_streaming_attachment(slide, file_storage)
 
         token = slide._local_video_attachment_token(attachment.id)
+        slide.sudo().write({
+            "is_local_video": True,
+            "video_binary_content": token,
+        })
         return self._json_response({
             "id": attachment.id,
             "name": attachment.name,
