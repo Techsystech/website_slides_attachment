@@ -30,5 +30,11 @@
         </div>
       </xpath>
     </template>
+
+    <template id="slide_fullscreen_sidebar_local_video" inherit_id="website_slides.slide_fullscreen_sidebar_category" name="Fullscreen Sidebar: Add local video flag">
+      <xpath expr="//li[@t-att-data-id='slide.id']" position="attributes">
+        <attribute name="t-att-data-is-local-video">slide.is_local_video</attribute>
+      </xpath>
+    </template>
   </data>
 </odoo>

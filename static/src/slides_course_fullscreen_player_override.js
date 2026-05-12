@@ -22,11 +22,18 @@ Fullscreen.include({
         // The base method only knows youtube / vimeo / google_drive.
         // For local videos it renders nothing, so we fill the content here.
         const isLocal = slide.videoSourceType === 'local' || slide.isLocalVideo;
+
+        console.log('[website_slides_attachment] _renderSlide check', {
+            id: slide.id,
+            category: slide.category,
+            videoSourceType: slide.videoSourceType,
+            isLocalVideo: slide.isLocalVideo,
+            isLocal: isLocal,
+        });
+
         if (!isLocal) {
             return def;
         }
-
-        console.log('[website_slides_attachment] rendering local video in fullscreen', slide.id, slide.videoSourceType);
 
         var $content = this.$('.o_wslides_fs_content');
         $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));

@@ -104,7 +104,7 @@ class Slide(models.Model):
                 _logger.exception("Failed migrating legacy local video for slide %s from %s", slide.id, raw_value)
         return {'migrated': migrated, 'skipped': skipped, 'failed': failed}
 
-    @api.depends('video_source_type', 'is_local_video')
+    @api.depends('video_url', 'is_local_video')
     def _compute_video_source_type(self):
         super()._compute_video_source_type()
         for slide in self:
