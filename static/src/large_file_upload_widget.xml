@@ -36,7 +36,12 @@
         <div class="d-flex align-items-center gap-2">
           <i class="fa fa-file-video-o text-primary fs-4"/>
           <div class="flex-grow-1">
-            <div class="fw-bold" t-esc="this.props.record.data.video_attachment_name || this.props.record.data[this.props.name]"/>
+            <div class="fw-bold">
+              <t t-if="this.props.record.data.video_attachment_name" t-esc="this.props.record.data.video_attachment_name"/>
+              <t t-else="" class="text-warning">
+                <i class="fa fa-exclamation-triangle me-1 text-warning"/> Missing attachment
+              </t>
+            </div>
             <div class="text-muted small" t-if="this.props.record.data.video_attachment_mimetype" t-esc="this.props.record.data.video_attachment_mimetype"/>
           </div>
           <button t-on-click="onRemove" class="btn btn-outline-danger btn-sm">
