@@ -5,16 +5,58 @@
       <field name="model">slide.slide</field>
       <field name="inherit_id" ref="website_slides.view_slide_slide_form"/>
       <field name="arch" type="xml">
-        <xpath expr="//field[@name='slide_category']" position="after">
-          <field name="is_local_video" invisible="slide_category != 'video'"/>
-        </xpath>
-        <xpath expr="//field[@name='document_binary_content']" position="after">
-          <field name="video_binary_content" widget="large_file_upload_widget" options="{'accepted_file_extensions': '.mp4'}" invisible="slide_category != 'video' or is_local_video == False"/>
-        </xpath>
-        <xpath expr="//field[@name='video_url']" position="attributes">
-          <attribute name="invisible">slide_category != 'video' and source_type != 'external' or is_local_video == True</attribute>
+        <!-- Replace video_url with a source-aware video section -->
+        <xpath expr="//field[@name='video_url']" position="replace">
+          <!-- Video Source selector shown for all video slides -->
+          <field name="video_source_type"
+                 string="Video Source"
+                 invisible="slide_category != 'video'"
+                 readonly="slide_category != 'video'"
+                 required="slide_category == 'video'"/>
+          <!-- URL field for external video sources -->
+          <field name="video_url"
+                 invisible="slide_category != 'video' or video_source_type == 'local'"
+                 readonly="slide_category != 'video' or video_source_type == 'local'"
+                 required="slide_category == 'video' and video_source_type != 'local'"
+                 placeholder='e.g "www.youtube.com/watch?v=ebBez6bcSEc"'
+                 widget="url"/>
+          <!-- Local video upload section -->
+          <div class="o_local_video_upload"
+               invisible="slide_category != 'video' or video_source_type != 'local'"
+               colspan="2">
+            <div class="card bg-light">
+              <div class="card-body">
+                <field name="video_binary_content"
+                       widget="large_file_upload_widget"
+                       options="{'accepted_file_extensions': '.mp4,.mov,.webm,.mkv'}"/>
+              </div>
+            </div>
+          </div>
+          <!-- Hidden fields needed by the upload widget for display -->
+          <field name="video_attachment_name" invisible="1"/>
+          <field name="video_attachment_mimetype" invisible="1"/>
         </xpath>
       </field>
     </record>
+
+    <template id="slide_content_detailed_local_video" inherit_id="website_slides.slide_content_detailed" name="Slide: Detailed Local Video Playback">
+      <xpath expr="//div[@t-if=&quot;slide.slide_category == 'video'&quot;]" position="replace">
+        <div t-if="slide.slide_category == 'video' and slide.video_source_type == 'local'" class="ratio ratio-16x9 embed-responsive-item mb8">
+          <video class="o-FileViewer-view" controls="controls" preload="metadata">
+            <source t-att-src="'/website_slides_attachment/download/%s' % slide.id" t-att-type="slide._get_local_video_attachment().mimetype or 'video/mp4'"/>
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        <div t-elif="slide.slide_category == 'video'" class="ratio ratio-16x9 embed-responsive-item mb8">
+          <t t-out="slide.embed_code"/>
+        </div>
+      </xpath>
+    </template>
+
+    <template id="slide_fullscreen_sidebar_local_video" inherit_id="website_slides.slide_fullscreen_sidebar_category" name="Fullscreen Sidebar: Add local video flag">
+      <xpath expr="//li[@t-att-data-id='slide.id']" position="attributes">
+        <attribute name="t-att-data-is-local-video">slide.is_local_video</attribute>
+      </xpath>
+    </template>
   </data>
 </odoo>

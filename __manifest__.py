@@ -13,7 +13,8 @@
     # Check https://github.com/odoo/odoo/blob/15.0/odoo/addons/base/data/ir_module_category_data.xml
     # for the full list
     'category': 'Uncategorized',
-    'version': '18.0',
+    'version': '18.0.1.3.0',
+    'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
     'depends': ['base','website_slides'],
@@ -24,6 +25,8 @@
     ],
     'assets': {
     'web.assets_frontend': [
+        'website_slides_attachment/static/src/slide_upload_dialog_patch.js',
+        'website_slides_attachment/static/src/slide_upload_dialog_patch.xml',
         'website_slides_attachment/static/src/slides_course_fullscreen_player_override.js',
         'website_slides_attachment/static/src/slides_course_fullscreen_player_override.xml',
     ],

@@ -17,64 +17,97 @@ export class UploadWidget extends Component {
       this.state = useState({
         file: null,
         filename: null,
-        saveLocation: '',
         uploading: false,
+        progress: 0,
+        uploadedFileName: null,
+        uploadedFileMimetype: null,
       });
-      this.name = null;
-    }
+   }
 
     onFileChange(event) {
-      this.state.filename = event.target.files[0].name;
-      this.state.file = event.target.files[0];
+      this.state.filename = event.target.files[0]?.name || null;
+      this.state.file = event.target.files[0] || null;
     }
-    onSaveLocationChange(event) {
-      this.state.saveLocation = event.target.value;
-      if (!this.state.saveLocation.startsWith('/')) {
-        this.state.saveLocation = '/' + this.state.saveLocation;
-      }
-      if (!this.state.saveLocation.endsWith('/')) {
-        this.state.saveLocation += '/';
-      }
-      document.querySelector('#save_location').value = this.state.saveLocation;
-    }
-   
+
     async startUpload() {
       if (!this.state.file) {
         alert('Please select a file to upload.');
         return;
       }
-      if (!this.state.saveLocation) {
-        alert('Please enter a save location.');
-        return;
-      }
-      try{
-        const date = new Date().toISOString();
-        const formData = new FormData();
-        formData.append('file', this.state.file);
-        formData.append('time_stamp', date);
-        formData.append('res_model', this.props.record._config.resModel);
-        formData.append('save_location', this.state.saveLocation);
-
-        this.state.uploading = true;
-        const response = await fetch('/website_slides_attachment/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        if (!response.ok) {
-          throw new Error(response.statusText);
+      if (!this.props.record.resId) {
+        // Auto-save the new record so it gets an ID before we create an
+        // attachment that needs res_model/res_id.
+        const fileName = this.state.file?.name || 'Local Video';
+        const baseName = fileName.replace(/\.[^.]+$/, "");
+        if (!this.props.record.data.name) {
+          await this.props.record.update({ name: baseName });
         }
-        const changes = { [this.props.name]: this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' ) };
+        const saved = await this.props.record.save();
+        if (!saved) {
+          alert('Please fill in the required fields before uploading a local video.');
+          return;
+        }
+      }
+      const formData = new FormData();
+      formData.append('file', this.state.file);
+      formData.append('res_id', this.props.record.resId);
+      formData.append('csrf_token', odoo.csrf_token);
+
+      this.state.uploading = true;
+      this.state.progress = 0;
+
+      try {
+        const payload = await this._uploadWithProgress(formData);
+        const changes = { [this.props.name]: payload.token };
+        this.state.uploadedFileName = payload.name || null;
+        this.state.uploadedFileMimetype = payload.mimetype || null;
         await this.props.record.update(changes, { save: this.props.autosave });
         this.state.uploading = false;
-      } 
-      catch (error) {
+        this.state.progress = 0;
+        this.state.file = null;
+        this.state.filename = null;
+      } catch (error) {
         this.state.uploading = false;
+        this.state.progress = 0;
         alert('Upload Failed with error: ' + error.message);
       }
     }
+
+    _uploadWithProgress(formData) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            this.state.progress = Math.round((event.loaded / event.total) * 100);
+          }
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject(new Error('Invalid server response'));
+            }
+          } else {
+            let msg = xhr.statusText;
+            try {
+              const payload = JSON.parse(xhr.responseText);
+              msg = payload.error || msg;
+            } catch (e) {}
+            reject(new Error(msg));
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+        xhr.open('POST', '/website_slides_attachment/upload');
+        xhr.send(formData);
+      });
+    }
+
     async onRemove(){
       const formData = new FormData();
-      formData.append('file_path', this.props.record.data[this.props.name]);
+      formData.append('attachment_token', this.props.record.data[this.props.name]);
+      formData.append('csrf_token', odoo.csrf_token);
 
       await fetch('/website_slides_attachment/remove', {
         method: 'POST',
@@ -83,6 +116,10 @@ export class UploadWidget extends Component {
 
       const changes = { [this.props.name]: '' };
       await this.props.record.update(changes, { save: this.props.autosave });
+      this.state.file = null;
+      this.state.filename = null;
+      this.state.uploadedFileName = null;
+      this.state.uploadedFileMimetype = null;
     }
 }
 
