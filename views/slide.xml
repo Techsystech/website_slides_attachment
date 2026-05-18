@@ -58,5 +58,23 @@
         <attribute name="t-att-data-is-local-video">slide.is_local_video</attribute>
       </xpath>
     </template>
+    <record id="action_migrate_legacy_local_videos" model="ir.actions.server">
+      <field name="name">Migrate Legacy Local Videos</field>
+      <field name="model_id" ref="website_slides.model_slide_slide"/>
+      <field name="state">code</field>
+      <field name="code">
+result = env['slide.slide']._migrate_legacy_local_video_files()
+action = {
+    'type': 'ir.actions.client',
+    'tag': 'display_notification',
+    'params': {
+        'title': 'Legacy Video Migration',
+        'message': 'Migrated: %(migrated)s, Skipped: %(skipped)s, Failed: %(failed)s' % result,
+        'type': 'success' if result['failed'] == 0 else 'warning',
+        'sticky': False,
+    }
+}
+      </field>
+    </record>
   </data>
 </odoo>

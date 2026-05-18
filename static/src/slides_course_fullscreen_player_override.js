@@ -31,16 +31,21 @@ Fullscreen.include({
         var filename = (slide.name || 'local-video') + '.mp4';
         this._localVideoSrc = '/website_slides_attachment/download/' + slide.id +
                               '/filename=' + encodeURIComponent(filename);
+        this._localVideoMimeType = slide.videoAttachmentMimetype || slide.video_attachment_mimetype || 'video/mp4';
 
         var $content = this.$('.o_wslides_fs_content');
         $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
 
         const videoViewer = document.querySelector('#embeddedVideoViewer');
         if (videoViewer) {
-            videoViewer.addEventListener('ended', async (event) => {
+            if (this._localVideoEndedHandler) {
+                videoViewer.removeEventListener('ended', this._localVideoEndedHandler);
+            }
+            this._localVideoEndedHandler = async (event) => {
                 await this.trigger_up('slide_mark_completed', slide);
                 await this.trigger_up('slide_go_next', slide);
-            });
+            };
+            videoViewer.addEventListener('ended', this._localVideoEndedHandler);
         }
 
         return def;
