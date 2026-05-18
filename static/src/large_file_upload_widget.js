@@ -4,6 +4,7 @@ import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
+import { useService } from "@web/core/utils/hooks";
 
 export class UploadWidget extends Component {
    static template = "website_slides_attachment.large_file_upload_widget_template";
@@ -22,6 +23,7 @@ export class UploadWidget extends Component {
         uploadedFileName: null,
         uploadedFileMimetype: null,
       });
+      this.notification = useService("notification");
    }
 
     onFileChange(event) {
@@ -31,7 +33,7 @@ export class UploadWidget extends Component {
 
     async startUpload() {
       if (!this.state.file) {
-        alert('Please select a file to upload.');
+        this.notification.add(_t('Please select a file to upload.'), { type: 'warning' });
         return;
       }
       if (!this.props.record.resId) {
@@ -44,7 +46,7 @@ export class UploadWidget extends Component {
         }
         const saved = await this.props.record.save();
         if (!saved) {
-          alert('Please fill in the required fields before uploading a local video.');
+          this.notification.add(_t('Please fill in the required fields before uploading a local video.'), { type: 'warning' });
           return;
         }
       }
@@ -69,7 +71,7 @@ export class UploadWidget extends Component {
       } catch (error) {
         this.state.uploading = false;
         this.state.progress = 0;
-        alert('Upload Failed with error: ' + error.message);
+        this.notification.add(_t('Upload failed: %s', error.message), { type: 'danger' });
       }
     }
 
@@ -109,17 +111,29 @@ export class UploadWidget extends Component {
       formData.append('attachment_token', this.props.record.data[this.props.name]);
       formData.append('csrf_token', odoo.csrf_token);
 
-      await fetch('/website_slides_attachment/remove', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const changes = { [this.props.name]: '' };
-      await this.props.record.update(changes, { save: this.props.autosave });
-      this.state.file = null;
-      this.state.filename = null;
-      this.state.uploadedFileName = null;
-      this.state.uploadedFileMimetype = null;
+      try {
+        const response = await fetch('/website_slides_attachment/remove', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!response.ok) {
+          let msg = _t('Server error');
+          try {
+            const payload = await response.json();
+            msg = payload.error || msg;
+          } catch (e) {}
+          this.notification.add(_t('Remove failed: %s', msg), { type: 'danger' });
+          return;
+        }
+        const changes = { [this.props.name]: '' };
+        await this.props.record.update(changes, { save: this.props.autosave });
+        this.state.file = null;
+        this.state.filename = null;
+        this.state.uploadedFileName = null;
+        this.state.uploadedFileMimetype = null;
+      } catch (error) {
+        this.notification.add(_t('Remove failed: %s', error.message), { type: 'danger' });
+      }
     }
 }
 
