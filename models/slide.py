@@ -74,14 +74,19 @@ class Slide(models.Model):
         return False
 
     @api.model
-    def _migrate_legacy_local_video_files(self, base_path=False, delete_source=False, limit=False):
+    def _migrate_legacy_local_video_files(self, base_path=None, delete_source=False, limit=False):
         """Move legacy filesystem-backed local videos into ir.attachment.
 
         base_path is optional and intentionally configurable for production. When
-        provided, only files under that directory are migrated. Without it, the
-        method migrates the absolute paths already stored on slide records, which
-        matches the legacy addon behavior without hardcoding a server path.
+        provided, only files under that directory are migrated. When omitted, the
+        method reads ``website_slides_attachment.migration_base_path`` from
+        ``ir.config_parameter``. If neither is set, it falls back to the legacy
+        behaviour of migrating all absolute paths stored on slide records.
         """
+        if base_path is None:
+            base_path = self.env['ir.config_parameter'].sudo().get_param(
+                'website_slides_attachment.migration_base_path', ''
+            )
         base = Path(base_path).expanduser().resolve() if base_path else False
         domain = [
             ('is_local_video', '=', True),
@@ -96,10 +101,15 @@ class Slide(models.Model):
                 path = Path(raw_value).expanduser().resolve()
                 if base and base not in (path, *path.parents):
                     skipped += 1
-                    _logger.warning("Skipping slide %s legacy video outside base path: %s", slide.id, path)
+                    _logger.warning(
+                        "Skipping slide %s legacy video outside base path: %s", slide.id, path
+                    )
                     continue
                 if not path.is_file():
                     skipped += 1
+                    _logger.warning(
+                        "Skipping slide %s legacy video (file not found): %s", slide.id, path
+                    )
                     continue
                 attachment = self.env['ir.attachment'].sudo().create({
                     'name': path.name,
@@ -109,13 +119,21 @@ class Slide(models.Model):
                     'res_model': 'slide.slide',
                     'res_id': slide.id,
                 })
-                slide.sudo().write({'video_binary_content': self._local_video_attachment_token(attachment.id)})
+                slide.sudo().write({
+                    'video_binary_content': self._local_video_attachment_token(attachment.id),
+                })
                 if delete_source:
                     path.unlink(missing_ok=True)
                 migrated += 1
             except Exception:
                 failed += 1
-                _logger.exception("Failed migrating legacy local video for slide %s from %s", slide.id, raw_value)
+                _logger.exception(
+                    "Failed migrating legacy local video for slide %s from %s", slide.id, raw_value
+                )
+        _logger.info(
+            "Legacy local video migration finished: %s migrated, %s skipped, %s failed",
+            migrated, skipped, failed,
+        )
         return {'migrated': migrated, 'skipped': skipped, 'failed': failed}
 
     @api.depends('video_url', 'is_local_video')

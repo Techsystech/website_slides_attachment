@@ -77,9 +77,9 @@ class UploadController(http.Controller):
         # NOTE: we cannot use file_storage.save() because Odoo monkey-patches
         # FileStorage.save to call copyfileobj(self.stream, dst) without
         # converting a string dst to an open file handle.
-        temp_path = tempfile.mktemp()
-        with open(temp_path, "wb") as dst:
-            shutil.copyfileobj(file_storage.stream, dst, STREAM_CHUNK_SIZE)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            shutil.copyfileobj(file_storage.stream, tmp, STREAM_CHUNK_SIZE)
+            temp_path = tmp.name
 
         try:
             with open(temp_path, "rb") as f:
@@ -207,7 +207,7 @@ class UploadController(http.Controller):
     @http.route([
         "/website_slides_attachment/download/<int:id>",
         "/website_slides_attachment/download/<int:id>/filename=<path:file_name>",
-    ], type="http", auth="user", methods=["GET"])
+    ], type="http", auth="public", methods=["GET"])
     def download_file(self, id=None, file_name=None, **kwargs):
         slide = self._check_slide_access(id, operation="read")
         attachment = slide._get_local_video_attachment()
@@ -247,8 +247,14 @@ class UploadController(http.Controller):
         if range_header and range_header.startswith("bytes="):
             range_value = range_header.split("=", 1)[1].split(",", 1)[0]
             start_s, end_s = (range_value.split("-", 1) + [""])[:2]
-            range_start = int(start_s) if start_s else 0
-            range_end = int(end_s) if end_s else file_size - 1
+            if not start_s:
+                # Suffix range: bytes=-500 means last 500 bytes
+                suffix_len = int(end_s) if end_s else 0
+                range_start = max(0, file_size - suffix_len)
+                range_end = file_size - 1
+            else:
+                range_start = int(start_s) if start_s else 0
+                range_end = int(end_s) if end_s else file_size - 1
             range_start = max(0, min(range_start, file_size))
             range_end = max(range_start, min(range_end, file_size - 1))
             status = 206
