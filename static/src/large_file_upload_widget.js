@@ -4,6 +4,7 @@ import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { Component, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
+import { useService } from "@web/core/utils/hooks";
 
 export class UploadWidget extends Component {
    static template = "website_slides_attachment.large_file_upload_widget_template";
@@ -17,72 +18,122 @@ export class UploadWidget extends Component {
       this.state = useState({
         file: null,
         filename: null,
-        saveLocation: '',
         uploading: false,
+        progress: 0,
+        uploadedFileName: null,
+        uploadedFileMimetype: null,
       });
-      this.name = null;
-    }
+      this.notification = useService("notification");
+   }
 
     onFileChange(event) {
-      this.state.filename = event.target.files[0].name;
-      this.state.file = event.target.files[0];
+      this.state.filename = event.target.files[0]?.name || null;
+      this.state.file = event.target.files[0] || null;
     }
-    onSaveLocationChange(event) {
-      this.state.saveLocation = event.target.value;
-      if (!this.state.saveLocation.startsWith('/')) {
-        this.state.saveLocation = '/' + this.state.saveLocation;
-      }
-      if (!this.state.saveLocation.endsWith('/')) {
-        this.state.saveLocation += '/';
-      }
-      document.querySelector('#save_location').value = this.state.saveLocation;
-    }
-   
+
     async startUpload() {
       if (!this.state.file) {
-        alert('Please select a file to upload.');
+        this.notification.add(_t('Please select a file to upload.'), { type: 'warning' });
         return;
       }
-      if (!this.state.saveLocation) {
-        alert('Please enter a save location.');
-        return;
+      if (!this.props.record.resId) {
+        // Auto-save the new record so it gets an ID before we create an
+        // attachment that needs res_model/res_id.
+        const fileName = this.state.file?.name || 'Local Video';
+        const baseName = fileName.replace(/\.[^.]+$/, "");
+        if (!this.props.record.data.name) {
+          await this.props.record.update({ name: baseName });
+        }
+        const saved = await this.props.record.save();
+        if (!saved) {
+          this.notification.add(_t('Please fill in the required fields before uploading a local video.'), { type: 'warning' });
+          return;
+        }
       }
-      try{
-        const date = new Date().toISOString();
-        const formData = new FormData();
-        formData.append('file', this.state.file);
-        formData.append('time_stamp', date);
-        formData.append('res_model', this.props.record._config.resModel);
-        formData.append('save_location', this.state.saveLocation);
+      const formData = new FormData();
+      formData.append('file', this.state.file);
+      formData.append('res_id', this.props.record.resId);
+      formData.append('csrf_token', odoo.csrf_token);
 
-        this.state.uploading = true;
-        const response = await fetch('/website_slides_attachment/upload', {
+      this.state.uploading = true;
+      this.state.progress = 0;
+
+      try {
+        const payload = await this._uploadWithProgress(formData);
+        const changes = { [this.props.name]: payload.token };
+        this.state.uploadedFileName = payload.name || null;
+        this.state.uploadedFileMimetype = payload.mimetype || null;
+        await this.props.record.update(changes, { save: this.props.autosave });
+        this.state.uploading = false;
+        this.state.progress = 0;
+        this.state.file = null;
+        this.state.filename = null;
+      } catch (error) {
+        this.state.uploading = false;
+        this.state.progress = 0;
+        this.notification.add(_t('Upload failed: %s', error.message), { type: 'danger' });
+      }
+    }
+
+    _uploadWithProgress(formData) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            this.state.progress = Math.round((event.loaded / event.total) * 100);
+          }
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject(new Error('Invalid server response'));
+            }
+          } else {
+            let msg = xhr.statusText;
+            try {
+              const payload = JSON.parse(xhr.responseText);
+              msg = payload.error || msg;
+            } catch (e) {}
+            reject(new Error(msg));
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+        xhr.open('POST', '/website_slides_attachment/upload');
+        xhr.send(formData);
+      });
+    }
+
+    async onRemove(){
+      const formData = new FormData();
+      formData.append('attachment_token', this.props.record.data[this.props.name]);
+      formData.append('csrf_token', odoo.csrf_token);
+
+      try {
+        const response = await fetch('/website_slides_attachment/remove', {
           method: 'POST',
           body: formData,
         });
         if (!response.ok) {
-          throw new Error(response.statusText);
+          let msg = _t('Server error');
+          try {
+            const payload = await response.json();
+            msg = payload.error || msg;
+          } catch (e) {}
+          this.notification.add(_t('Remove failed: %s', msg), { type: 'danger' });
+          return;
         }
-        const changes = { [this.props.name]: this.state.saveLocation + this.props.record._config.resModel + '_' + date + '_' + this.state.filename.replaceAll(' ', '_' ) };
+        const changes = { [this.props.name]: '' };
         await this.props.record.update(changes, { save: this.props.autosave });
-        this.state.uploading = false;
-      } 
-      catch (error) {
-        this.state.uploading = false;
-        alert('Upload Failed with error: ' + error.message);
+        this.state.file = null;
+        this.state.filename = null;
+        this.state.uploadedFileName = null;
+        this.state.uploadedFileMimetype = null;
+      } catch (error) {
+        this.notification.add(_t('Remove failed: %s', error.message), { type: 'danger' });
       }
-    }
-    async onRemove(){
-      const formData = new FormData();
-      formData.append('file_path', this.props.record.data[this.props.name]);
-
-      await fetch('/website_slides_attachment/remove', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const changes = { [this.props.name]: '' };
-      await this.props.record.update(changes, { save: this.props.autosave });
     }
 }
 
