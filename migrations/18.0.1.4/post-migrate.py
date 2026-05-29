@@ -5,7 +5,9 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
-def migrate(env, version):
+def migrate(cr, version):
+    import odoo
+    env = odoo.api.Environment(cr, odoo.SUPERUSER_ID, {})
     base_path = env['ir.config_parameter'].sudo().get_param(
         'website_slides_attachment.migration_base_path', ''
     )
