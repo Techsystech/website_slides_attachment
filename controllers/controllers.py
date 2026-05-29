@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import logging
 import mimetypes
@@ -212,84 +213,52 @@ class UploadController(http.Controller):
         slide = self._check_slide_access(id, operation="read")
         attachment = slide._get_local_video_attachment()
 
+        if attachment and attachment.store_fname:
+            # Filestore attachment — use Odoo's Stream for proper range/etag support
+            file_path = attachment._full_path(attachment.store_fname)
+            if os.path.isfile(file_path):
+                stat = os.stat(file_path)
+                stream = http.Stream(
+                    type='path',
+                    path=file_path,
+                    mimetype=attachment.mimetype or mimetypes.guess_type(attachment.name)[0] or "video/mp4",
+                    download_name=secure_filename(attachment.name or slide.name or "local-video") or "local-video",
+                    last_modified=stat.st_mtime,
+                    size=stat.st_size,
+                    etag=True,
+                )
+                return stream.get_response(as_attachment=False)
+
         if attachment:
+            # Inline base64 attachment
             filename = secure_filename(attachment.name or slide.name or "local-video") or "local-video"
             mimetype = attachment.mimetype or mimetypes.guess_type(filename)[0] or "video/mp4"
-            file_path = attachment._full_path(attachment.store_fname) if attachment.store_fname else None
-            if file_path and os.path.isfile(file_path):
-                file_size = os.path.getsize(file_path)
-                data_source = file_path
-                is_file = True
-            else:
-                # Fallback to datas (base64) if filestore path is missing
-                data = base64.b64decode(attachment.datas or b"")
-                file_size = len(data)
-                data_source = data
-                is_file = False
-        else:
-            legacy_path = slide._get_legacy_local_video_path()
-            if not legacy_path:
-                raise NotFound()
-            filename = secure_filename(file_name or slide.name or legacy_path.name) or "local-video"
-            mimetype = mimetypes.guess_type(str(legacy_path))[0] or "video/mp4"
-            file_size = legacy_path.stat().st_size
-            data_source = str(legacy_path)
-            is_file = True
-
-        range_header = request.httprequest.headers.get("Range")
-        status = 200
-        headers = [
-            ("Content-Type", mimetype),
-            ("Accept-Ranges", "bytes"),
-            ("Content-Disposition", f"inline; filename=\"{filename}\""),
-        ]
-
-        if range_header and range_header.startswith("bytes="):
-            range_value = range_header.split("=", 1)[1].split(",", 1)[0]
-            start_s, end_s = (range_value.split("-", 1) + [""])[:2]
-            if not start_s:
-                # Suffix range: bytes=-500 means last 500 bytes
-                suffix_len = int(end_s) if end_s else 0
-                range_start = max(0, file_size - suffix_len)
-                range_end = file_size - 1
-            else:
-                range_start = int(start_s) if start_s else 0
-                range_end = int(end_s) if end_s else file_size - 1
-            range_start = max(0, min(range_start, file_size))
-            range_end = max(range_start, min(range_end, file_size - 1))
-            status = 206
-            headers.extend([
-                ("Content-Range", f"bytes {range_start}-{range_end}/{file_size}"),
-                ("Content-Length", str(range_end - range_start + 1)),
-            ])
-
-            if is_file:
-                with open(data_source, "rb") as f:
-                    f.seek(range_start)
-                    data = f.read(range_end - range_start + 1)
-                return request.make_response(data, headers=headers, status=status)
-            else:
-                return request.make_response(
-                    data_source[range_start:range_end + 1],
-                    headers=headers,
-                    status=status,
-                )
-
-        headers.append(("Content-Length", str(file_size)))
-
-        if is_file:
-            # Stream from disk in chunks to avoid loading large files into memory
-            def file_stream():
-                with open(data_source, "rb") as f:
-                    while True:
-                        chunk = f.read(STREAM_CHUNK_SIZE)
-                        if not chunk:
-                            break
-                        yield chunk
-            return request.make_response(
-                file_stream(),
-                headers=headers,
-                status=status,
+            data = base64.b64decode(attachment.datas or b"")
+            stream = http.Stream(
+                type='data',
+                data=data,
+                mimetype=mimetype,
+                download_name=filename,
+                size=len(data),
+                etag=hashlib.sha256(data).hexdigest(),
+                last_modified=attachment.write_date,
             )
-        else:
-            return request.make_response(data_source, headers=headers, status=status)
+            return stream.get_response(as_attachment=False)
+
+        # Legacy filesystem path fallback
+        legacy_path = slide._get_legacy_local_video_path()
+        if not legacy_path:
+            raise NotFound()
+        filename = secure_filename(file_name or slide.name or legacy_path.name) or "local-video"
+        mimetype = mimetypes.guess_type(str(legacy_path))[0] or "video/mp4"
+        stat = legacy_path.stat()
+        stream = http.Stream(
+            type='path',
+            path=str(legacy_path),
+            mimetype=mimetype,
+            download_name=filename,
+            last_modified=stat.st_mtime,
+            size=stat.st_size,
+            etag=True,
+        )
+        return stream.get_response(as_attachment=False)
