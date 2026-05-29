@@ -27,12 +27,17 @@ Fullscreen.include({
             return def;
         }
 
-        // Build the download URL in JS because encodeURIComponent is not
-        // available inside OWL template expressions (ctx.encodeURIComponent).
-        var filename = (slide.name || 'local-video') + '.mp4';
-        this._localVideoSrc = '/website_slides_attachment/download/' + slide.id +
-                              '/filename=' + encodeURIComponent(filename);
-        this._localVideoMimeType = slide.videoAttachmentMimetype || slide.video_attachment_mimetype || 'video/mp4';
+        if (isNextcloud) {
+            this._localVideoSrc = slide.nextcloudDownloadUrl;
+            this._localVideoMimeType = 'video/mp4';
+        } else {
+            // Build the download URL in JS because encodeURIComponent is not
+            // available inside OWL template expressions (ctx.encodeURIComponent).
+            var filename = (slide.name || 'local-video') + '.mp4';
+            this._localVideoSrc = '/website_slides_attachment/download/' + slide.id +
+                                  '/filename=' + encodeURIComponent(filename);
+            this._localVideoMimeType = slide.videoAttachmentMimetype || slide.video_attachment_mimetype || 'video/mp4';
+        }
 
         var $content = this.$('.o_wslides_fs_content');
         $content.empty().append(renderToElement('website.slides.fullscreen.content.video', {widget: this}));
