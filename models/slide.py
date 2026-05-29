@@ -15,9 +15,9 @@ class Slide(models.Model):
     _inherit = "slide.slide"
 
     video_source_type = fields.Selection(
-        selection_add=[('local', 'Local Video')],
+        selection_add=[('local', 'Local Video'), ('nextcloud', 'Nextcloud')],
         store=True, readonly=False,
-        help="Select the source for this video. Choose 'Local Video' to upload a file from your device.",
+        help="Select the source for this video. Choose 'Local Video' to upload a file from your device, or 'Nextcloud' to link a share URL.",
     )
 
     is_local_video = fields.Boolean()
@@ -25,6 +25,11 @@ class Slide(models.Model):
     video_binary_content = fields.Char(
         string='Video Attachment',
         help='Local video attachment token. Legacy filesystem paths are migrated to ir.attachment tokens.'
+    )
+
+    nextcloud_download_url = fields.Char(
+        string='Nextcloud Download URL',
+        compute='_compute_nextcloud_download_url',
     )
 
     video_attachment_name = fields.Char(
@@ -142,6 +147,24 @@ class Slide(models.Model):
         for slide in self:
             if slide.is_local_video:
                 slide.video_source_type = 'local'
+            elif slide.video_url and self._is_nextcloud_url(slide.video_url):
+                slide.video_source_type = 'nextcloud'
+
+    @api.model
+    def _is_nextcloud_url(self, url):
+        if not url:
+            return False
+        url = url.strip().lower()
+        return '/index.php/s/' in url
+
+    @api.depends('video_url')
+    def _compute_nextcloud_download_url(self):
+        for slide in self:
+            if slide.video_source_type == 'nextcloud' and slide.video_url:
+                url = slide.video_url.strip().rstrip('/')
+                slide.nextcloud_download_url = url + '/download'
+            else:
+                slide.nextcloud_download_url = False
 
     @api.depends('video_binary_content')
     def _compute_video_attachment_info(self):
@@ -160,6 +183,9 @@ class Slide(models.Model):
             if slide.video_source_type == 'local':
                 slide.is_local_video = True
                 slide.video_url = False
+            elif slide.video_source_type == 'nextcloud':
+                slide.is_local_video = False
+                slide.video_binary_content = False
             else:
                 slide.is_local_video = False
                 slide.video_binary_content = False
@@ -167,5 +193,5 @@ class Slide(models.Model):
     def _compute_slide_icon_class(self):
         super()._compute_slide_icon_class()
         for slide in self:
-            if slide.slide_category == 'video' and slide.video_source_type == 'local':
+            if slide.slide_category == 'video' and slide.video_source_type in ('local', 'nextcloud'):
                 slide.slide_icon_class = 'fa-youtube-play'

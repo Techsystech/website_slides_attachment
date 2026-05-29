@@ -13,7 +13,7 @@
                  invisible="slide_category != 'video'"
                  readonly="slide_category != 'video'"
                  required="slide_category == 'video'"/>
-          <!-- URL field for external video sources -->
+          <!-- URL field for external video sources (YouTube, Vimeo, Google Drive, Nextcloud) -->
           <field name="video_url"
                  invisible="slide_category != 'video' or video_source_type == 'local'"
                  readonly="slide_category != 'video' or video_source_type == 'local'"
@@ -35,15 +35,21 @@
           <!-- Hidden fields needed by the upload widget for display -->
           <field name="video_attachment_name" invisible="1"/>
           <field name="video_attachment_mimetype" invisible="1"/>
+          <field name="nextcloud_download_url" invisible="1"/>
         </xpath>
       </field>
     </record>
 
-    <template id="slide_content_detailed_local_video" inherit_id="website_slides.slide_content_detailed" name="Slide: Detailed Local Video Playback">
+    <template id="slide_content_detailed_local_video" inherit_id="website_slides.slide_content_detailed" name="Slide: Detailed Local / Nextcloud Video Playback">
       <xpath expr="//div[@t-if=&quot;slide.slide_category == 'video'&quot;]" position="replace">
-        <div t-if="slide.slide_category == 'video' and slide.video_source_type == 'local'" class="ratio ratio-16x9 embed-responsive-item mb8">
+        <div t-if="slide.slide_category == 'video' and slide.video_source_type in ('local', 'nextcloud')" class="ratio ratio-16x9 embed-responsive-item mb8">
           <video class="o-FileViewer-view" controls="controls" preload="metadata">
-            <source t-att-src="'/website_slides_attachment/download/%s' % slide.id" t-att-type="slide._get_local_video_attachment().mimetype or 'video/mp4'"/>
+            <t t-if="slide.video_source_type == 'local'">
+              <source t-att-src="'/website_slides_attachment/download/%s' % slide.id" t-att-type="slide._get_local_video_attachment().mimetype or 'video/mp4'"/>
+            </t>
+            <t t-if="slide.video_source_type == 'nextcloud'">
+              <source t-att-src="slide.nextcloud_download_url" type="video/mp4"/>
+            </t>
             Your browser does not support the video tag.
           </video>
         </div>
@@ -53,9 +59,10 @@
       </xpath>
     </template>
 
-    <template id="slide_fullscreen_sidebar_local_video" inherit_id="website_slides.slide_fullscreen_sidebar_category" name="Fullscreen Sidebar: Add local video flag">
+    <template id="slide_fullscreen_sidebar_local_video" inherit_id="website_slides.slide_fullscreen_sidebar_category" name="Fullscreen Sidebar: Add local video / nextcloud flags">
       <xpath expr="//li[@t-att-data-id='slide.id']" position="attributes">
         <attribute name="t-att-data-is-local-video">slide.is_local_video</attribute>
+        <attribute name="t-att-data-nextcloud-download-url">slide.nextcloud_download_url or False</attribute>
       </xpath>
     </template>
     <record id="action_migrate_legacy_local_videos" model="ir.actions.server">

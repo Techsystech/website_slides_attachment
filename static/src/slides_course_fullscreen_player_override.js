@@ -5,7 +5,7 @@ import Fullscreen from "@website_slides/js/slides_course_fullscreen_player";
 
 Fullscreen.include({
     /**
-     * Render local video slides in fullscreen using a native <video> element.
+     * Render local / nextcloud video slides in fullscreen using a native <video> element.
      *
      * @private
      * @override
@@ -20,9 +20,10 @@ Fullscreen.include({
         }
 
         // The base method only knows youtube / vimeo / google_drive.
-        // For local videos it renders nothing, so we fill the content here.
+        // For local / nextcloud videos it renders nothing, so we fill the content here.
         const isLocal = slide.videoSourceType === 'local' || slide.isLocalVideo;
-        if (!isLocal) {
+        const isNextcloud = slide.videoSourceType === 'nextcloud';
+        if (!isLocal && !isNextcloud) {
             return def;
         }
 
