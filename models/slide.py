@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import re
 from pathlib import Path
 
 from odoo import api, fields, models
@@ -143,19 +144,32 @@ class Slide(models.Model):
 
     @api.depends('video_url', 'is_local_video')
     def _compute_video_source_type(self):
+        # The base compute resets video_source_type whenever video_url changes
+        # (every keystroke while typing, or on any form auto-save). We stash
+        # the current value before super() so we can restore the user's explicit
+        # selection when the URL is still being entered or empty.
+        current_values = {slide.id: slide.video_source_type for slide in self}
         super()._compute_video_source_type()
         for slide in self:
             if slide.is_local_video:
                 slide.video_source_type = 'local'
             elif slide.video_url and self._is_nextcloud_url(slide.video_url):
                 slide.video_source_type = 'nextcloud'
+            elif not slide.video_source_type and current_values.get(slide.id):
+                # Base compute cleared our value because video_url is empty or
+                # doesn't match a known pattern yet. Restore the user's choice
+                # so auto-saves don't wipe the dropdown selection.
+                slide.video_source_type = current_values[slide.id]
 
     @api.model
     def _is_nextcloud_url(self, url):
         if not url:
             return False
         url = url.strip().lower()
-        return '/index.php/s/' in url
+        # Nextcloud share URLs come in two flavours:
+        #   https://domain.com/index.php/s/<token>
+        #   https://domain.com/s/<token>          (clean URLs / pretty URLs)
+        return '/index.php/s/' in url or re.search(r'/s/[a-z0-9]+', url)
 
     @api.depends('video_url')
     def _compute_nextcloud_download_url(self):
