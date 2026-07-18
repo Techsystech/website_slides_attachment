@@ -21,7 +21,10 @@ class Slide(models.Model):
         help="Select the source for this video. Choose 'Local Video' to upload a file from your device, or 'Nextcloud' to link a share URL.",
     )
 
-    is_local_video = fields.Boolean()
+    is_local_video = fields.Boolean(
+        compute='_compute_is_local_video',
+        store=True,
+    )
 
     video_binary_content = fields.Char(
         string='Video Attachment',
@@ -95,7 +98,7 @@ class Slide(models.Model):
             )
         base = Path(base_path).expanduser().resolve() if base_path else False
         domain = [
-            ('is_local_video', '=', True),
+            ('slide_category', '=', 'video'),
             ('video_binary_content', '!=', False),
             ('video_binary_content', 'not ilike', LOCAL_ATTACHMENT_PREFIX + '%'),
         ]
@@ -127,6 +130,7 @@ class Slide(models.Model):
                 })
                 slide.sudo().write({
                     'video_binary_content': self._local_video_attachment_token(attachment.id),
+                    'video_source_type': 'local',
                 })
                 if delete_source:
                     path.unlink(missing_ok=True)
@@ -142,7 +146,7 @@ class Slide(models.Model):
         )
         return {'migrated': migrated, 'skipped': skipped, 'failed': failed}
 
-    @api.depends('video_url', 'is_local_video')
+    @api.depends('video_url')
     def _compute_video_source_type(self):
         # The base compute resets video_source_type whenever video_url changes
         # (every keystroke while typing, or on any form auto-save). We stash
@@ -151,15 +155,18 @@ class Slide(models.Model):
         current_values = {slide.id: slide.video_source_type for slide in self}
         super()._compute_video_source_type()
         for slide in self:
-            if slide.is_local_video:
-                slide.video_source_type = 'local'
-            elif slide.video_url and self._is_nextcloud_url(slide.video_url):
+            if slide.video_url and self._is_nextcloud_url(slide.video_url):
                 slide.video_source_type = 'nextcloud'
             elif not slide.video_source_type and current_values.get(slide.id):
                 # Base compute cleared our value because video_url is empty or
                 # doesn't match a known pattern yet. Restore the user's choice
                 # so auto-saves don't wipe the dropdown selection.
                 slide.video_source_type = current_values[slide.id]
+
+    @api.depends('video_source_type')
+    def _compute_is_local_video(self):
+        for slide in self:
+            slide.is_local_video = slide.video_source_type == 'local'
 
     @api.model
     def _is_nextcloud_url(self, url):
@@ -195,13 +202,10 @@ class Slide(models.Model):
     def _onchange_video_source_type(self):
         for slide in self:
             if slide.video_source_type == 'local':
-                slide.is_local_video = True
                 slide.video_url = False
             elif slide.video_source_type == 'nextcloud':
-                slide.is_local_video = False
                 slide.video_binary_content = False
             else:
-                slide.is_local_video = False
                 slide.video_binary_content = False
 
     def _compute_slide_icon_class(self):

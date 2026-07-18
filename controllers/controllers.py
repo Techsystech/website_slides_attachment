@@ -116,7 +116,7 @@ class UploadController(http.Controller):
 
         token = slide._local_video_attachment_token(attachment.id)
         slide.sudo().write({
-            "is_local_video": True,
+            "video_source_type": "local",
             "video_binary_content": token,
         })
         return self._json_response({
@@ -129,7 +129,7 @@ class UploadController(http.Controller):
     def _create_local_video_attachment(self, slide, file_storage):
         attachment = self._create_streaming_attachment(slide, file_storage)
         slide.sudo().write({
-            "is_local_video": True,
+            "video_source_type": "local",
             "video_binary_content": slide._local_video_attachment_token(attachment.id),
         })
         return attachment
@@ -154,7 +154,7 @@ class UploadController(http.Controller):
                 "channel_id": channel.id,
                 "name": post.get("name") or secure_filename(post.get("file_name") or "Local Video"),
                 "slide_category": "video",
-                "is_local_video": True,
+                "video_source_type": "local",
                 "is_published": self._form_truthy(post, "is_published"),
                 "user_id": request.env.uid,
             }

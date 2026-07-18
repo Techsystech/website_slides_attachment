@@ -28,7 +28,7 @@ class TestLocalVideoStorage(TransactionCase):
                 'name': "What? It's fine…",
                 'channel_id': channel.id,
                 'slide_category': 'video',
-                'is_local_video': True,
+                'video_source_type': 'local',
                 'video_binary_content': fd.name,
             })
             result = self.env['slide.slide']._migrate_legacy_local_video_files(base_path=str(Path(fd.name).parent))
